@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Signal PH – Telco Outage Tracker</title>
+<style>
+:root{--bg:#f5f7f8;--card:#fff;--ink:#14212b;--mute:#5d6b76;--line:#dbe2e7;--sea:#dcebf2;--land:#f2efe4;--landline:#b9b49c;
+--down:#d13b30;--part:#d98a00;--rest:#1f6fd1;--ok:#2a8f55;--acc:#0b5c6b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a21;--card:#17252f;--ink:#e8eef2;--mute:#94a5b0;--line:#27394544;--line:#2a3c47;--sea:#12303d;--land:#243a33;--landline:#3d5a50;--down:#ff6b5e;--part:#ffb02e;--rest:#5aa2ff;--ok:#4cc38a;--acc:#5cc6d6}}
+:root[data-theme="dark"]{--bg:#0f1a21;--card:#17252f;--ink:#e8eef2;--mute:#94a5b0;--line:#2a3c47;--sea:#12303d;--land:#243a33;--landline:#3d5a50;--down:#ff6b5e;--part:#ffb02e;--rest:#5aa2ff;--ok:#4cc38a;--acc:#5cc6d6}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Trebuchet MS","Segoe UI",system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:1.6rem;margin:0 0 2px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+.check{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+select,input,button{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+button{cursor:pointer}button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#verdict{margin-top:10px;padding:10px 12px;border-radius:8px;border-left:5px solid var(--ok);background:var(--bg)}
+#verdict.bad{border-color:var(--down)}
+.stats{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.stat b{font-size:1.5rem;display:block;line-height:1.1}.stat span{color:var(--mute);font-size:.85rem}
+.grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:14px;align-items:start}
+@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip{border-radius:999px;padding:4px 12px;font-size:.85rem}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+svg{width:100%;height:auto;display:block;border-radius:8px;background:var(--sea)}
+.land{fill:var(--land);stroke:var(--landline);stroke-width:1}
+.pin{cursor:pointer}.pin circle.c{stroke:#fff;stroke-width:1.5}
+.pin text{font-size:11px;fill:var(--ink);paint-order:stroke;stroke:var(--sea);stroke-width:3px}
+.pin.sel circle.ring{stroke:var(--ink);fill:none;stroke-width:2}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.8rem;color:var(--mute);margin-top:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.item{border:1px solid var(--line);border-left:5px solid var(--down);border-radius:8px;padding:10px 12px;margin-bottom:10px;background:var(--card)}
+.item.Partial{border-left-color:var(--part)}.item.Restoring{border-left-color:var(--rest)}.item.Restored{border-left-color:var(--ok)}
+.item.hl{outline:2px solid var(--acc)}
+.top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.badge{font-size:.78rem;border-radius:6px;padding:1px 8px;color:#fff;background:var(--down)}
+.badge.Partial{background:var(--part);color:#1a1a1a}.badge.Restoring{background:var(--rest)}.badge.Restored{background:var(--ok)}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:8px 0 2px;font-size:.88rem}
+.times small{display:block;color:var(--mute)}
+.mute{color:var(--mute);font-size:.88rem}
+details summary{cursor:pointer;font-weight:600}
+form{display:grid;gap:8px;margin-top:10px}
+.note{font-size:.8rem;color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Signal PH</h1>
+  <p class="sub">Telco outages across the Philippines: where, when it started, and when service should return.</p>
+
+<section class="card" id="adminbox" hidden>
+  <strong>Admin</strong>
+  <div id="a-login" class="check" style="margin:8px 0">
+    <input id="a-repo" placeholder="owner/repo" aria-label="GitHub repo">
+    <input id="a-tok" type="password" placeholder="GitHub token" aria-label="GitHub token">
+    <button class="pri" id="a-save">Sign in</button>
+  </div>
+  <div id="a-main" hidden>
+    <form id="a-form">
+      <div class="check"><select id="f-t" aria-label="Telco"></select><select id="f-a" aria-label="Area"></select><select id="f-s" aria-label="Status"><option>Down</option><option>Partial</option><option>Restoring</option></select></div>
+      <input id="f-p" placeholder="Places (e.g. Cebu City, Mandaue)">
+      <input id="f-c" placeholder="Cause (e.g. fiber cut)" required>
+      <label class="note">Started (Philippine time)<input id="f-st" type="datetime-local" required></label>
+      <label class="note">Expected back (leave empty if no estimate)<input id="f-e" type="datetime-local"></label>
+      <input id="f-src" type="url" placeholder="Link to telco advisory (optional)">
+      <button class="pri" type="submit">Post outage</button>
+    </form>
+    <div id="a-list" style="margin-top:12px"></div>
+    <button id="a-out">Sign out</button>
+  </div>
+  <p class="note" id="a-msg" role="status"></p>
+</section>
+
+  <section class="card" aria-labelledby="chk">
+    <strong id="chk">Is my area affected?</strong>
+    <div class="check" style="margin-top:8px">
+      <select id="area" aria-label="Your area"></select>
+      <button class="pri" id="go">Check area</button>
+      <button id="gps">Use my location</button>
+    </div>
+    <div id="verdict" hidden></div>
+  </section>
+
+  <p class="note" id="upd"></p>
+  <div class="stats" id="stats"></div>
+
+  <div class="grid">
+    <section class="card" aria-label="Outage map">
+      <svg id="map" viewBox="0 0 440 680" role="img" aria-label="Map of the Philippines with outage markers"></svg>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--down)"></i>Down</span>
+        <span><i class="dot" style="background:var(--part)"></i>Partial</span>
+        <span><i class="dot" style="background:var(--rest)"></i>Restoring</span>
+        <span><i class="dot" style="background:var(--ok)"></i>No active outage</span>
+      </div>
+      <p class="note">Schematic map. Tap a marker to see that area's outages.</p>
+    </section>
+
+    <section aria-label="Outage list">
+      <div class="chips" id="chips"></div>
+      <div id="list"></div>
+    </section>
+  </div>
+  <p class="note">Outages are posted by our team from official telco advisories. Times are Philippine time. If your service is down and it is not listed, contact your telco.</p>
+</div>
+
+<!--
+HOW TO POST OUTAGES (admins): edit the JSON block below on GitHub and commit. The site refreshes itself within 2 minutes.
+Each outage: telco, area, places (optional), cause, status (Down | Partial | Restoring | Restored), started, eta (or null),
+restored (only when status is Restored), source (optional link). Use Philippine time, e.g. 2026-10-03T09:00:00+08:00.
+"area" must match a map area exactly: Metro Manila, Pampanga, Pangasinan, Benguet (Baguio), Cagayan, Batangas, Albay, Palawan,
+Iloilo, Negros Occidental, Cebu, Bohol, Leyte (Tacloban), Zamboanga, Cagayan de Oro, Davao.
+Example entry:
+{"telco":"Globe","area":"Cebu","places":"Cebu City, Mandaue","cause":"Fiber cut","status":"Down","started":"2026-10-03T09:00:00+08:00","eta":"2026-10-03T17:00:00+08:00","source":"https://..."}
+-->
+<script type="application/json" id="outage-data">
+{
+  "updated": "2026-10-03T12:00:00+08:00",
+  "outages": []
+}
+</script>
+<script>
+const H=3600e3, now=Date.now();
+const TELCOS=["Globe","Smart","DITO","PLDT","Converge","Sky","Other"];
+const AREAS={ // name:[lat,lon]
+"Metro Manila":[14.60,121.00],"Pampanga":[15.06,120.66],"Pangasinan":[16.04,120.33],"Benguet (Baguio)":[16.41,120.59],
+"Cagayan":[17.61,121.73],"Batangas":[13.76,121.06],"Albay":[13.14,123.74],"Palawan":[9.74,118.74],
+"Iloilo":[10.72,122.56],"Negros Occidental":[10.68,122.95],"Cebu":[10.32,123.90],"Bohol":[9.85,124.14],
+"Leyte (Tacloban)":[11.24,125.00],"Zamboanga":[6.91,122.08],"Cagayan de Oro":[8.48,124.65],"Davao":[7.07,125.61]};
+let O=[];
+function apply(d){
+  O=(d.outages||[]).map((o,i)=>({id:i,t:o.telco,a:o.area,c:o.cause,n:o.places||'',s:o.status,st:Date.parse(o.started),
+    eta:o.status==="Restored"?Date.parse(o.restored):(o.eta?Date.parse(o.eta):null),src:o.source}));
+  $('upd').textContent=d.updated?'Last updated '+fmt(Date.parse(d.updated))+' (auto-refreshes every 2 minutes)':'';
+}
+async function load(first){
+  try{
+    if(first){apply(JSON.parse($('outage-data').textContent));}
+    else{
+      const r=await fetch(location.pathname+'?t='+Date.now(),{cache:'no-store'});
+      if(!r.ok)throw 0;
+      const doc=new DOMParser().parseFromString(await r.text(),'text/html');
+      apply(JSON.parse(doc.getElementById('outage-data').textContent));
+    }
+  }catch(e){if(!first)$('upd').textContent="Couldn't refresh. Showing the last loaded data.";}
+  renderAll(); if(sel&&$('verdict').hidden===false)verdict(sel);
+}
+
+const $=id=>document.getElementById(id);
+const fmt=t=>new Date(t).toLocaleString('en-PH',{timeZone:'Asia/Manila',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+const dur=ms=>{const m=Math.max(0,Math.round(ms/6e4)),d=Math.floor(m/1440),h=Math.floor(m%1440/60),mm=m%60;return d?`${d}d ${h}h`:h?`${h}h ${mm}m`:`${mm}m`};
+const active=o=>o.s!=="Restored";
+let tf="All", sel=null;
+
+function etaText(o){
+  if(o.s==="Restored")return {l:"Restored at",v:fmt(o.eta)};
+  if(o.eta==null)return {l:"Back online",v:"No estimate yet"};
+  return {l:"Expected back",v:`${fmt(o.eta)} (in ${dur(o.eta-Date.now())})`};
+}
+function item(o){
+  const e=etaText(o), el=o.s==="Restored"?o.eta-o.st:Date.now()-o.st;
+  return `<article class="item ${o.s} ${sel===o.a?'hl':''}">
+  <div class="top"><strong>${o.t} · ${o.a}</strong><span class="badge ${o.s}">${o.s}</span></div>
+  <div class="mute">${o.n||''}${o.n?' — ':''}${o.c}</div>
+  <div class="times"><div><small>Started</small>${fmt(o.st)}</div><div><small>${e.l}</small>${e.v}</div>
+  <div><small>${o.s==="Restored"?"Outage lasted":"Down for"}</small>${dur(el)}</div></div>${o.src?`<a class="note" href="${o.src}" target="_blank" rel="noopener">Telco advisory</a>`:''}</article>`;
+}
+function renderList(){
+  let L=O.filter(o=>(tf==="All"||o.t===tf)&&(!sel||o.a===sel)).sort((a,b)=>active(b)-active(a)||a.st-b.st);
+  $('list').innerHTML=L.length?L.map(item).join(''):`<div class="card mute">No outages reported right now.${sel?' <button onclick="pick(null)">Show all areas</button>':''}</div>`;
+  if(sel&&L.length)$('list').insertAdjacentHTML('afterbegin',`<p class="mute">Showing ${sel}. <button onclick="pick(null)">Show all areas</button></p>`);
+}
+function renderChips(){
+  const T=["All",...new Set(O.map(o=>o.t))];
+  $('chips').innerHTML=T.map(t=>`<button class="chip" aria-pressed="${t===tf}" data-t="${t}">${t}</button>`).join('');
+  $('chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{tf=b.dataset.t;renderAll()});
+}
+function renderStats(){
+  const a=O.filter(active);
+  $('stats').innerHTML=`<div class="stat"><b>${a.length}</b><span>active outages</span></div>
+  <div class="stat"><b>${new Set(a.map(o=>o.a)).size}</b><span>areas affected</span></div>
+  <div class="stat"><b>${a.filter(o=>o.eta==null).length}</b><span>with no estimate yet</span></div>`;
+}
+// Map: x=(lon-116)*40, y=(21.5-lat)*40
+const P=pts=>pts.map(([lo,la])=>`${((lo-116)*40).toFixed(0)},${((21.5-la)*40).toFixed(0)}`).join(' ');
+const LAND=[
+[[120.6,18.5],[122.2,18.5],[122.4,17],[121.6,15.8],[121.6,14.7],[122,14],[123.3,13.8],[124.2,12.6],[123.7,12.4],[123,13],[122,13.7],[121,13.7],[120.6,14.3],[120.3,14.8],[120,15.8],[120.4,16.3],[120.3,17.5]],
+[[120.3,13.5],[121.5,13.4],[121.4,12.3],[120.9,12.2]],
+[[117.2,8.4],[118.4,9.2],[119.6,10.8],[120.2,11.4],[120.4,11.2],[119.2,9.6],[118,8.5]],
+[[121.9,11.8],[123.1,11.5],[123.1,10.6],[122.2,10.4],[121.9,11.2]],
+[[122.4,10.9],[123.5,10.6],[123.4,9.4],[123.2,9],[122.5,9.8]],
+[[123.3,11.2],[124,10.5],[123.5,9.5],[123.3,9.8]],
+[[124.2,12.5],[125.6,12.4],[125.7,11.3],[125.1,11],[124.5,11.6]],
+[[124.4,11.3],[125,11.2],[125.1,10],[124.6,10.1]],
+[[123.8,10.2],[124.6,10.1],[124.3,9.6],[123.8,9.7]],
+[[122.1,7],[122.2,7.9],[123.5,8.6],[124.3,8.6],[125.5,9.8],[126.3,9],[126.5,7.5],[126.2,6.5],[125.5,5.9],[125,6.6],[124.2,6.3],[124,7],[123.5,7.5],[122.8,7]]];
+const col={Down:'var(--down)',Partial:'var(--part)',Restoring:'var(--rest)'};
+function renderMap(){
+  let s=LAND.map(p=>`<polygon class="land" points="${P(p.map(([a,b])=>[a,b]))}"/>`).join('');
+  for(const [n,[la,lo]] of Object.entries(AREAS)){
+    const x=(lo-116)*40,y=(21.5-la)*40, os=O.filter(o=>o.a===n&&active(o));
+    const w=os.find(o=>o.s==="Down")||os.find(o=>o.s==="Partial")||os[0];
+    const f=w?col[w.s]:'var(--ok)', r=w?9:5;
+    s+=`<g class="pin ${sel===n?'sel':''}" tabindex="0" role="button" aria-label="${n}: ${os.length} active outages" data-a="${n}">
+    <circle class="ring" cx="${x}" cy="${y}" r="${r+5}"/><circle class="c" cx="${x}" cy="${y}" r="${r}" fill="${f}"/>
+    ${os.length?`<text x="${x}" y="${y+3.5}" text-anchor="middle" style="fill:#fff;stroke:none;font-size:10px;font-weight:700">${os.length}</text>`:''}
+    <text x="${x+r+6}" y="${y+4}">${n.split(' (')[0]}</text></g>`;
+  }
+  $('map').innerHTML=s;
+  $('map').querySelectorAll('.pin').forEach(g=>{g.onclick=()=>pick(g.dataset.a);g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick(g.dataset.a)}}});
+}
+function pick(a){sel=a;if(a)$('area').value=a;renderAll();}
+function verdict(a){
+  const os=O.filter(o=>o.a===a&&active(o)), v=$('verdict');v.hidden=false;
+  if(!os.length){v.className='';v.innerHTML=`<strong>No active outage reported in ${a}.</strong> If your connection is down, try restarting your modem and report it below.`;return}
+  v.className='bad';
+  v.innerHTML=`<strong>Yes, ${a} has ${os.length} active outage${os.length>1?'s':''}.</strong><br>`+os.map(o=>{const e=etaText(o);return `${o.t}: started ${fmt(o.st)}. ${e.l.toLowerCase()}: ${e.v}.`}).join('<br>');
+}
+function check(a){sel=a;verdict(a);renderAll();}
+$('go').onclick=()=>check($('area').value);
+$('gps').onclick=()=>{
+  if(!navigator.geolocation){$('verdict').hidden=false;$('verdict').textContent="Location isn't available in this browser. Pick your area from the list.";return}
+  navigator.geolocation.getCurrentPosition(p=>{
+    let best,bd=1e9;
+    for(const [n,[la,lo]] of Object.entries(AREAS)){const d=Math.hypot(la-p.coords.latitude,(lo-p.coords.longitude)*Math.cos(la*Math.PI/180));if(d<bd){bd=d;best=n}}
+    $('area').value=best;check(best);
+  },()=>{$('verdict').hidden=false;$('verdict').className='';$('verdict').textContent="Couldn't get your location. Pick your area from the list instead."});
+};
+const opts=Object.keys(AREAS).map(n=>`<option>${n}</option>`).join('');
+$('area').innerHTML=opts;
+function renderAll(){renderChips();renderStats();renderMap();renderList();}
+/* ---- Admin panel (open this page with #admin at the end of the address) ---- */
+const lsGet=k=>{try{return localStorage.getItem(k)||''}catch(e){return''}}, lsSet=(k,v)=>{try{v?localStorage.setItem(k,v):localStorage.removeItem(k)}catch(e){}};
+const RX=/(id="outage-data">)([\s\S]*?)(<\/script>)/;
+const adm={tok:lsGet('gh_tok'),repo:lsGet('gh_repo')||guessRepo()};
+function guessRepo(){const h=location.hostname;if(!h.endsWith('.github.io'))return'';const o=h.split('.')[0],p=location.pathname.split('/')[1];return o+'/'+(p&&!p.endsWith('.html')?p:o+'.github.io')}
+const fileName=()=>{const l=location.pathname.split('/').pop();return l.endsWith('.html')?l:'index.html'};
+const GH=()=>({Authorization:'Bearer '+adm.tok,Accept:'application/vnd.github+json'});
+const apiUrl=()=>`https://api.github.com/repos/${adm.repo}/contents/${fileName()}`;
+const amsg=t=>{$('a-msg').textContent=t};
+async function ghLoad(){
+  const r=await fetch(apiUrl(),{headers:GH(),cache:'no-store'});
+  if(!r.ok)throw new Error('GitHub replied '+r.status+'. Check the repo name and your token.');
+  const j=await r.json(), bin=atob(j.content.replace(/\s/g,''));
+  adm.text=new TextDecoder().decode(Uint8Array.from(bin,c=>c.charCodeAt(0)));adm.sha=j.sha;
+  adm.data=JSON.parse(adm.text.match(RX)[2]);
+}
+async function ghSave(msg){
+  const body=JSON.stringify(adm.data,null,2).replace(/</g,'\\u003c');
+  const text=adm.text.replace(RX,(a,x,y,z)=>x+'\n'+body+'\n'+z);
+  const b=new TextEncoder().encode(text);let s='';for(let i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));
+  const r=await fetch(apiUrl(),{method:'PUT',headers:{...GH(),'Content-Type':'application/json'},body:JSON.stringify({message:msg,content:btoa(s),sha:adm.sha})});
+  if(!r.ok)throw new Error('Could not save ('+r.status+'). Your token needs Contents: read and write on this repo.');
+  adm.sha=(await r.json()).content.sha;adm.text=text;
+  apply(adm.data);renderAll();adminList();
+  amsg('Saved. The public site updates in about a minute or two.');
+}
+function adminList(){
+  const L=adm.data.outages;
+  $('a-list').innerHTML=L.length?L.map((o,i)=>`<div class="item ${o.status}"><strong>${o.telco} · ${o.area}</strong> <span class="badge ${o.status}">${o.status}</span>
+  <div class="mute">${o.cause}</div><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+  ${o.status!=="Restoring"&&o.status!=="Restored"?`<button data-i="${i}" data-act="rs">Mark restoring</button>`:''}
+  ${o.status!=="Restored"?`<button data-i="${i}" data-act="ok">Mark restored</button>`:''}
+  <button data-i="${i}" data-act="rm">Remove</button></div></div>`).join(''):'<p class="mute">No outages posted.</p>';
+  $('a-list').querySelectorAll('button').forEach(b=>b.onclick=async()=>{
+    const o=adm.data.outages[b.dataset.i],a=b.dataset.act;
+    if(a==='rm'){if(!confirm('Remove this outage?'))return;adm.data.outages.splice(b.dataset.i,1)}
+    if(a==='rs')o.status='Restoring';
+    if(a==='ok'){o.status='Restored';o.restored=new Date().toISOString();}
+    adm.data.updated=new Date().toISOString();
+    try{amsg('Saving...');await ghSave('Update outage: '+o.telco+' '+o.area)}catch(e){amsg(e.message);ghLoad().catch(()=>{})}
+  });
+}
+async function openAdmin(){
+  $('adminbox').hidden=false;$('a-repo').value=adm.repo;
+  if(!adm.tok)return;
+  try{amsg('Signing in...');await ghLoad();$('a-login').hidden=true;$('a-main').hidden=false;adminList();amsg('')}
+  catch(e){amsg(e.message);$('a-login').hidden=false;$('a-main').hidden=true}
+}
+$('f-t').innerHTML=TELCOS.map(t=>`<option>${t}</option>`).join('');
+$('f-a').innerHTML=Object.keys(AREAS).map(n=>`<option>${n}</option>`).join('');
+const localNow=()=>{const d=new Date(Date.now()+8*H);return d.toISOString().slice(0,16)};
+$('f-st').value=localNow();
+$('a-save').onclick=()=>{adm.repo=$('a-repo').value.trim();adm.tok=$('a-tok').value.trim();lsSet('gh_repo',adm.repo);lsSet('gh_tok',adm.tok);$('a-tok').value='';openAdmin()};
+$('a-out').onclick=()=>{adm.tok='';lsSet('gh_tok','');$('a-main').hidden=true;$('a-login').hidden=false;amsg('Signed out.')};
+$('a-form').onsubmit=async e=>{e.preventDefault();
+  const o={telco:$('f-t').value,area:$('f-a').value,places:$('f-p').value.trim(),cause:$('f-c').value.trim(),status:$('f-s').value,
+    started:$('f-st').value+':00+08:00',eta:$('f-e').value?$('f-e').value+':00+08:00':null};
+  if($('f-src').value)o.source=$('f-src').value;
+  adm.data.outages.push(o);adm.data.updated=new Date().toISOString();
+  try{amsg('Saving...');await ghSave('Add outage: '+o.telco+' '+o.area);$('a-form').reset();$('f-st').value=localNow()}
+  catch(err){adm.data.outages.pop();amsg(err.message)}
+};
+if(location.hash==='#admin')openAdmin();
+addEventListener('hashchange',()=>{if(location.hash==='#admin')openAdmin()});
+
+load(true);
+setInterval(()=>load(false),120000);
+</script>
+</body>
+</html>
